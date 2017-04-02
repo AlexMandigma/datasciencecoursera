@@ -1,0 +1,104 @@
+---
+title: "Practical Machine Learning"
+output: html_document
+---
+#Alex M
+#April 2, 2017
+
+Excercising is an important part for a fit and healthy living. Tracking the excercises Using different devices such as Jawbone Up, Nike FuelBand, and Fitbit can help people on seeing their progress and motivate them to continue on their activities. They can see how much they do it and how well they do it since optimal results can be achieved using the correct quantity and quality of exercises.
+
+The goal of this project is to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to peranFororm 5 different exercises correctly and incorrectly. The data for this project come from this source: http://groupware.les.inf.puc-rio.br/har
+
+#Loading and Cleaning data
+
+Using the given URL for the test and training data we will be loading the CSVs and remove data from the first 7 columns, 0 and missing values. The cleaned data will be represented by trainData and testData. 
+
+```{r}
+library(caret)
+library(rpart)
+library(rpart.plot)
+library(RColorBrewer)
+library(rattle)
+library(randomForest)
+trainUrl <- "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+testUrl <- "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+traincsv <- read.csv(url(trainUrl), na.strings=c("NA","#DIV/0!",""))
+testcsv <- read.csv(url(testUrl), na.strings=c("NA","#DIV/0!",""))
+traincsv <- traincsv[, colSums(is.na(traincsv)) == 0]
+testcsv <- testcsv[, colSums(is.na(testcsv)) == 0]
+trainData <- traincsv[, -c(1:7)]
+testData <- testcsv[, -c(1:7)]
+```
+
+#Data Splitting
+
+We split the cleaned training set trainData into a training set (data_train, 80%) and a testing set (data_test 20%). Our predictions will come out from this two tests.
+
+```{r}
+sample_train <- sample(nrow(trainData), nrow(trainData)*0.8)
+data_train <- trainData[sample_train, ]
+data_test <- trainData[-sample_train, ]
+```
+
+
+#Predictions
+
+##Predicting with trees
+
+We will first predict the outcomes using trees.
+```{r}
+model_fit <- rpart(classe ~ ., data = data_train, method = "class")
+predict_rpart <- predict(model_fit, data_test, type="class")
+print(model_fit, digits = 4)
+
+```
+
+
+We can see the prediction tree plot below:
+
+```{r}
+fancyRpartPlot(model_fit)
+``` 
+
+
+
+
+```{r}
+(conf_rpart <- confusionMatrix(data_test$classe, predict_rpart))
+```
+
+
+```{r}
+plot(data.frame("Predicted"=predict(model_fit, data_test), "Observed"=data_test$classe))
+```
+We can see that the model has a 72.66% accuracy of predicting the outcome based on the confusion matrix which is not actually a good indicator. The plot above also shows the predictions vs. the observed outcome,
+
+##Random Forest
+We will next try using the Random FOrest method if we can have a better outcome.
+
+
+```{r}
+fit_ranFor <- randomForest(classe ~. , data=data_train)
+print(fit_ranFor, digits = 4)
+```
+
+```{r}
+predict_ranFor <- predict(fit_ranFor, data_test)
+(conf_ranFor <- confusionMatrix(data_test$classe, predict_ranFor))
+```
+
+```{r}
+plot(data.frame("Predicted"=predict(fit_ranFor, data_test), "Observed"=data_test$classe))
+```
+
+We can see from the confusion matrix that the accuracy is 99.57%. It can also be observed from the plot above on the predicted vs. outcome. We will be using Random Forest model for getting the answers on our quiz.
+
+
+#Prediction on the testing data set
+
+We will now predict the testing data for 1 to 20. These will be the answers to the quiz.
+
+```{r}
+prediction_final <- predict(fit_ranFor, testData, type = "class")
+data.frame( problem_id=testcsv$problem_id, predicted=prediction_final)
+```
